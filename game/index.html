@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<title>Sizzle &amp; Serve — a cooking game</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: #2b1d12; }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    display: flex; align-items: center; justify-content: center;
+    min-height: 100vh; color: #3d2b1f;
+  }
+  #wrap { position: relative; width: min(1280px, 100vw); }
+  canvas {
+    display: block; width: 100%; height: auto;
+    background: #f3e2c7; border-radius: 8px;
+    box-shadow: 0 12px 48px rgba(0,0,0,.5);
+  }
+  .overlay {
+    position: absolute; inset: 0; display: flex;
+    align-items: center; justify-content: center;
+    background: rgba(43,29,18,.55); border-radius: 8px; z-index: 5;
+  }
+  .hidden { display: none !important; }
+  .card {
+    background: #fff8ea; border: 3px solid #e8a94e; border-radius: 18px;
+    padding: 28px 34px; max-width: 560px; text-align: center;
+    box-shadow: 0 16px 40px rgba(0,0,0,.45);
+  }
+  .card h1 { font-size: 42px; color: #b35c12; letter-spacing: 1px; }
+  .card h2 { font-size: 30px; color: #b35c12; margin-bottom: 8px; }
+  .card p { font-size: 16px; line-height: 1.5; margin: 10px 0; color: #5d4a33; }
+  .card .sub { font-size: 14px; color: #8a7a63; }
+  .btn {
+    display: inline-block; margin: 12px 6px 0; padding: 13px 30px;
+    font-size: 19px; font-weight: 700; color: #fff; background: #69b455;
+    border: none; border-radius: 12px; cursor: pointer;
+    box-shadow: 0 4px 0 #4a8a3a;
+  }
+  .btn:hover { filter: brightness(1.07); }
+  .btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #4a8a3a; }
+  .btn.secondary { background: #e8a94e; box-shadow: 0 4px 0 #b97d1e; }
+  .btn.danger { background: #e0492f; box-shadow: 0 4px 0 #a82e1e; }
+  .stats {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px 24px;
+    margin: 14px 0 4px; font-size: 18px; text-align: left;
+  }
+  .stats b { float: right; color: #b35c12; }
+  #end-rating { font-size: 26px; color: #e8a94e; margin: 6px 0; }
+  #help-box {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%);
+    z-index: 6; width: min(560px, 92%);
+  }
+  #help-box .card { text-align: left; }
+  #help-box li { margin: 6px 0 6px 20px; font-size: 15px; line-height: 1.45; }
+  .corner {
+    position: absolute; top: 10px; z-index: 7; display: flex; gap: 8px;
+  }
+  .corner.right { right: 10px; }
+  .corner button {
+    padding: 8px 14px; font-size: 14px; font-weight: 700;
+    background: rgba(255,248,234,.92); color: #3d2b1f;
+    border: 2px solid #c9a86a; border-radius: 9px; cursor: pointer;
+  }
+  .corner button:hover { background: #fff; }
+  #credit {
+    position: absolute; bottom: -26px; left: 0; right: 0; text-align: center;
+    font-size: 12px; color: #a08a68;
+  }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="game" width="1280" height="720"></canvas>
+
+  <div id="title-screen" class="overlay">
+    <div class="card">
+      <h1>SIZZLE &amp; SERVE</h1>
+      <p><b>The lunch rush is on.</b> Orders fly in on the board — grill the
+      patties, boil the pasta, stack each plate exactly to the ticket, and
+      serve it before the customer's patience runs out.</p>
+      <p class="sub">3-minute shift &middot; 4 dishes &middot; combos for streaks &middot;
+      lose all 3 stars and the kitchen closes early.</p>
+      <button id="start-btn" class="btn" type="button">Start your shift</button>
+      <p class="sub">Mouse to click &middot; keys 1&ndash;0 / Q / W / E / R for ingredients &middot;
+      Enter to serve &middot; Del to clear the plate</p>
+    </div>
+  </div>
+
+  <div id="pause-screen" class="overlay hidden">
+    <div class="card">
+      <h2>Paused</h2>
+      <p>Take a breath, chef. The orders will wait — the timer won't, once you resume.</p>
+      <button id="resume-btn" class="btn" type="button">Resume</button>
+      <button id="restart-btn" class="btn secondary" type="button">Restart shift</button>
+    </div>
+  </div>
+
+  <div id="end-screen" class="overlay hidden">
+    <div class="card">
+      <h2 id="end-title">Shift over!</h2>
+      <div id="end-rating"></div>
+      <div class="stats">
+        <div>Final score <b id="end-score">0</b></div>
+        <div>Dishes served <b id="end-served">0</b></div>
+        <div>Orders lost <b id="end-missed">0</b></div>
+        <div>Best combo <b id="end-combo">x0</b></div>
+      </div>
+      <button id="again-btn" class="btn" type="button">Play again</button>
+    </div>
+  </div>
+
+  <div id="help-box" class="hidden">
+    <div class="card">
+      <h2>How to play</h2>
+      <ul>
+        <li><b>1. Pick an order.</b> Click a ticket on the order board to select it. The dots show its recipe; filled dots are already on your plate.</li>
+        <li><b>2. Cook what needs cooking.</b> Click a patty, meat or pasta bin and it goes to the grill or pot. Click it again when the ring turns gold (READY) — leave it and it burns.</li>
+        <li><b>3. Build the plate.</b> Click ingredient bins to stack them. Click a layer on the plate to remove just that one; CLEAR empties it.</li>
+        <li><b>4. Serve.</b> Hit SERVE (or Enter) when the plate matches the ticket exactly. Fast serves and streaks pay more.</li>
+        <li><b>Watch the clock.</b> A ticket that runs out of patience walks out: &minus;100 points and a lost star. Three stars gone ends the shift.</li>
+      </ul>
+      <p class="sub">Dishes: Classic Burger, Garden Salad, Pasta Alfredo, Crunchy Taco.</p>
+    </div>
+  </div>
+
+  <div id="credit">Sizzle &amp; Serve — an original game built for the make.fun cooking bounty. All art and sound are drawn and synthesized in code.</div>
+</div>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
