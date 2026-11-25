@@ -10,13 +10,28 @@
 // MAKEFUN_OUTPUT_DIR stands in for /output:
 //
 //   mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts
-import { cpSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { chmodSync, cpSync, existsSync, mkdirSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildDossier } from './vendor/makefun-game.ts';
 
 const here = fileURLToPath(new URL('.', import.meta.url));
 const out = process.env.MAKEFUN_OUTPUT_DIR ?? '/output';
+
+// Everything the grader reads must be world-readable, whatever the
+// sandbox umask is: files 0644, directories 0755.
+function fixModes(dir) {
+  for (const entry of readdirSync(dir)) {
+    const p = join(dir, entry);
+    const st = statSync(p);
+    if (st.isDirectory()) {
+      chmodSync(p, 0o755);
+      fixModes(p);
+    } else {
+      chmodSync(p, 0o644);
+    }
+  }
+}
 
 // Start from a clean output directory so a stale file can never leak in.
 mkdirSync(out, { recursive: true });
@@ -26,6 +41,7 @@ mkdirSync(join(out, 'screenshots'), { recursive: true });
 if (existsSync(join(here, 'screenshots'))) {
   cpSync(join(here, 'screenshots'), join(out, 'screenshots'), { recursive: true });
 }
+fixModes(out);
 
 // The scorer's own caps, mirrored here so a bad entry is refused early:
 // at most 4 screenshots, each at most 256 KiB; game/ at most 993 files
@@ -41,5 +57,7 @@ writeFileSync(
     game_path_max_bytes: 1000,
   }),
 );
+chmodSync(join(out, 'dossier.json'), 0o644);
+chmodSync(out, 0o755);
 
 console.log(`Sizzle & Serve handed in to ${out}`);
